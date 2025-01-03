@@ -1,0 +1,168 @@
+import 'package:flutter/material.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Blood Donation App',
+      theme: ThemeData(primarySwatch: Colors.red),
+      home: const HomeScreen(),
+    );
+  }
+}
+
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Blood Donation App"),
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('donors').snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final donors = snapshot.data!.docs;
+          return ListView.builder(
+            itemCount: donors.length,
+            itemBuilder: (context, index) {
+              final donor = donors[index];
+              return Card(
+                child: ListTile(
+                  title: Text(donor['name']),
+                  subtitle: Text("Blood Group: ${donor['bloodGroup']}"),
+                  trailing: Text("Contact: ${donor['contact']}"),
+                ),
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const DonorRegistration()),
+          );
+        },
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class DonorRegistration extends StatefulWidget {
+  const DonorRegistration({Key? key}) : super(key: key);
+
+  @override
+  _DonorRegistrationState createState() => _DonorRegistrationState();
+}
+
+class _DonorRegistrationState extends State<DonorRegistration> {
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _contactController = TextEditingController();
+  String? _bloodGroup;
+
+  final List<String> bloodGroups = [
+    "A+",
+    "A-",
+    "B+",
+    "B-",
+    "O+",
+    "O-",
+    "AB+",
+    "AB-"
+  ];
+
+  void _registerDonor() async {
+    if (_nameController.text.isEmpty ||
+        _contactController.text.isEmpty ||
+        _bloodGroup == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please fill all fields!")),
+      );
+      return;
+    }
+
+    await FirebaseFirestore.instance.collection('donors').add({
+      'name': _nameController.text,
+      'contact': _contactController.text,
+      'bloodGroup': _bloodGroup,
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Donor registered successfully!")),
+    );
+
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Register as Donor"),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: "Name",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _contactController,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: "Contact Number",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _bloodGroup,
+              items: bloodGroups.map((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                setState(() {
+                  _bloodGroup = newValue;
+                });
+              },
+              decoration: const InputDecoration(
+                labelText: "Blood Group",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _registerDonor,
+              child: const Text("Register"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
